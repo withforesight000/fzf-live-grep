@@ -1,4 +1,4 @@
-# AGENT.md
+# AGENTS.md
 
 This file provides practical guidance for coding agents working in this repository.
 

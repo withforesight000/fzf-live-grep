@@ -73,14 +73,16 @@ fi
 
 # Build one searchable stream:
 # - F\t<path> for file entries
-# - L\t<path>:<line>:<text> for content entries
+# - L\t<colored rg --vimgrep output> for content entries
 build_index() {
   find "$target_dir" -type f -not -path '*/.git/*' -print \
     | sed 's#^\./##' \
     | awk '{print "F\t" $0}'
 
   # rg returns exit code 1 when there is no match; treat it as non-fatal.
-  rg --line-number --no-heading --color=never --hidden --glob '!.git' '^' "$target_dir" 2>/dev/null \
+  rg --vimgrep --color=always \
+    --colors 'line:fg:cyan' \
+    --hidden --glob '!.git' '^' "$target_dir" 2>/dev/null \
     | sed 's#^\./##' \
     | awk '{print "L\t" $0}' \
     || true
@@ -101,8 +103,9 @@ if [[ "$kind" == "F" ]]; then
   exit 0
 fi
 
-file="${body%%:*}"
-rest="${body#*:}"
+raw="$(printf "%s\n" "$body" | sed -E "s/\x1B\\[[0-9;]*m//g")"
+file="${raw%%:*}"
+rest="${raw#*:}"
 lineno="${rest%%:*}"
 if [[ -z "$lineno" || ! "$lineno" =~ ^[0-9]+$ ]]; then
   lineno=1
@@ -159,8 +162,9 @@ if [[ "$kind" == "F" ]]; then
   file="$body"
   line="1"
 else
-  file="${body%%:*}"
-  rest="${body#*:}"
+  raw="$(printf "%s\n" "$body" | sed -E "s/\x1B\\[[0-9;]*m//g")"
+  file="${raw%%:*}"
+  rest="${raw#*:}"
   line="${rest%%:*}"
   if [[ -z "$line" || ! "$line" =~ ^[0-9]+$ ]]; then
     line="1"

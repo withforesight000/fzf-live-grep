@@ -7,8 +7,9 @@ This script combines `fzf` and `rg` to search both file names and file contents 
 - Launches `fzf` in full-screen mode in the terminal
 - Searches under the current directory (`-d` to change target)
   - `F\t<path>`: file name entries
-  - `L\t<path>:<line>:<text>`: file content entries
+  - `L\t<path>:<line>:<column>:<text>`: file content entries (`rg --vimgrep`)
 - Query syntax follows `fzf`
+- Line numbers in content matches are highlighted via `rg --colors`
 - Opens selected results with a configurable command
   - Priority: `-o` > env: `LIVE_GREP_OPEN_CMD` > `code -g` for VSCode
   - For example:
