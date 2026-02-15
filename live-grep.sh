@@ -4,12 +4,13 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./live-grep.sh [-d DIR] [-o "OPEN_CMD"]
+  ./live-grep.sh [-d DIR] [-o "OPEN_CMD"] [-u]
 
 Options:
   -d DIR        Search target directory (default: current directory)
   -o OPEN_CMD   Open selected result with command
                 Priority: -o > env: LIVE_GREP_OPEN_CMD > "code -g" for VSCode
+  -u            Do not respect VCS ignore rules (e.g. .gitignore) for rg search
   -h            Show this help
 EOF
 }
@@ -24,11 +25,6 @@ if ! command -v rg >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v find >/dev/null 2>&1; then
-  echo "error: find is required" >&2
-  exit 1
-fi
-
 if ! command -v bat >/dev/null 2>&1; then
   echo "error: bat is required for preview" >&2
   exit 1
@@ -36,11 +32,13 @@ fi
 
 target_dir="."
 open_cmd="${LIVE_GREP_OPEN_CMD:-code -g}"
+rg_no_ignore_vcs=false
 
-while getopts ":d:o:h" opt; do
+while getopts ":d:o:uh" opt; do
   case "$opt" in
     d) target_dir="$OPTARG" ;;
     o) open_cmd="$OPTARG" ;;
+    u) rg_no_ignore_vcs=true ;;
     h)
       usage
       exit 0
@@ -75,14 +73,26 @@ fi
 # - F\t<path> for file entries
 # - L\t<colored rg path:line:text output> for content entries
 build_index() {
-  find "$target_dir" -type f -not -path '*/.git/*' -print \
+  local -a rg_common_opts=(
+    --hidden
+    --glob '!.git'
+  )
+  local -a rg_content_opts=(
+    --line-number
+    --color=always
+    --colors 'line:fg:cyan'
+  )
+
+  if [[ "$rg_no_ignore_vcs" == true ]]; then
+    rg_common_opts+=(--no-ignore-vcs)
+  fi
+
+  rg --files "${rg_common_opts[@]}" "$target_dir" 2>/dev/null \
     | sed 's#^\./##' \
     | awk '{print "F\t" $0}'
 
   # rg returns exit code 1 when there is no match; treat it as non-fatal.
-  rg --line-number --color=always \
-    --colors 'line:fg:cyan' \
-    --hidden --glob '!.git' '^' "$target_dir" 2>/dev/null \
+  rg "${rg_common_opts[@]}" "${rg_content_opts[@]}" '^' "$target_dir" 2>/dev/null \
     | sed 's#^\./##' \
     | awk '{print "L\t" $0}' \
     || true

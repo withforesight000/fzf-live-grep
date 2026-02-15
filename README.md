@@ -23,7 +23,6 @@ This script combines `fzf` and `rg` to search both file names and file contents 
 
 - `fzf`
 - `rg` (ripgrep)
-- `find`
 - `bat` (used for preview)
 
 ## Usage
@@ -31,12 +30,13 @@ This script combines `fzf` and `rg` to search both file names and file contents 
 ```bash
 $ ./live-grep.sh -h
 Usage:
-  ./live-grep.sh [-d DIR] [-o "OPEN_CMD"]
+  ./live-grep.sh [-d DIR] [-o "OPEN_CMD"] [-u]
 
 Options:
   -d DIR        Search target directory (default: current directory)
   -o OPEN_CMD   Open selected result with command
                 Priority: -o > env: LIVE_GREP_OPEN_CMD > "code -g" for VSCode
+  -u            Do not respect VCS ignore rules (e.g. .gitignore) for rg search
   -h            Show this help
 ```
 
@@ -69,6 +69,12 @@ export LIVE_GREP_OPEN_CMD='f="$1"; nvim "+${f##*:}" "${f%:*}"'
 
 ```bash
 ./live-grep.sh -d ./src -o "code -g"
+```
+
+6. Ignore `.gitignore` rules for file-name/content search (`rg`)
+
+```bash
+./live-grep.sh -u
 ```
 
 ## Editor Examples
