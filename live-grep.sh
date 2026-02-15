@@ -129,11 +129,13 @@ selected="$({ build_index; } | fzf \
   --border \
   --cycle \
   --info=inline-right \
-  --header='Enter: select | Ctrl-/: preview toggle | Alt-j/k: preview scroll' \
+  --header='Enter: select | Ctrl-/: preview toggle | Alt-j/k or Ctrl-u/d: preview scroll' \
   --bind='ctrl-/:toggle-preview' \
   --bind='alt-j:preview-down' \
   --bind='alt-k:preview-up' \
-  --preview-window='right,60%,border-left' \
+  --bind='ctrl-d:preview-half-page-down' \
+  --bind='ctrl-u:preview-half-page-up' \
+  --preview-window='right,50%,border-left' \
   --preview "$preview_cmd")"
 fzf_status=$?
 set -e
