@@ -73,14 +73,14 @@ fi
 
 # Build one searchable stream:
 # - F\t<path> for file entries
-# - L\t<colored rg --vimgrep output> for content entries
+# - L\t<colored rg path:line:text output> for content entries
 build_index() {
   find "$target_dir" -type f -not -path '*/.git/*' -print \
     | sed 's#^\./##' \
     | awk '{print "F\t" $0}'
 
   # rg returns exit code 1 when there is no match; treat it as non-fatal.
-  rg --vimgrep --color=always \
+  rg --line-number --color=always \
     --colors 'line:fg:cyan' \
     --hidden --glob '!.git' '^' "$target_dir" 2>/dev/null \
     | sed 's#^\./##' \
