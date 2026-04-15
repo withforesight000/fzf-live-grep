@@ -139,8 +139,9 @@ selected="$({ build_index; } | fzf \
   --border \
   --cycle \
   --info=inline-right \
-  --header='Enter: select | Ctrl-/: preview toggle | Alt-j/k or Ctrl-u/d: preview scroll' \
+  --header='Enter: select | Ctrl-/: preview toggle | Alt-w: wrap toggle | Alt-j/k or Ctrl-u/d: preview scroll' \
   --bind='ctrl-/:toggle-preview' \
+  --bind='alt-w:toggle-wrap' \
   --bind='alt-j:preview-down' \
   --bind='alt-k:preview-up' \
   --bind='ctrl-d:preview-half-page-down' \

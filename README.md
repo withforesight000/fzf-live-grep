@@ -108,5 +108,6 @@ export LIVE_GREP_OPEN_CMD='f="$1"; nvim "+${f##*:}" "${f%:*}"'
 
 - `Enter`: select
 - `Ctrl-/`: toggle preview
+- `Alt-w`: toggle result list wrap
 - `Alt-j` / `Alt-k`: scroll preview down/up
 - `Ctrl-d` / `Ctrl-u`: preview half-page down/up
