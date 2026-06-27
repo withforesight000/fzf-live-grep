@@ -11,7 +11,8 @@ This script combines `fzf` and `rg` to search both file names and file contents 
 - Query syntax follows `fzf`
 - Line numbers in content matches are highlighted via `rg --colors`
 - Opens selected results with a configurable command
-  - Priority: `-o` > env: `LIVE_GREP_OPEN_CMD` > `code -g` for VSCode
+  - Priority: `-o` > env: `LIVE_GREP_OPEN_CMD` > auto-detect editor terminal > `code -g`
+  - When possible, the default opener detects VS Code, Zed, Neovim, or Vim integrated terminals and opens the selection in that editor.
   - For example:
     - zed: `-o "zed"` or `LIVE_GREP_OPEN_CMD='zed'`
     - neovim: `-o 'f="$1"; nvim "+${f##*:}" "${f%:*}"'` or `LIVE_GREP_OPEN_CMD='f="$1"; nvim "+${f##*:}" "${f%:*}"'`
@@ -35,12 +36,12 @@ Usage:
 Options:
   -d DIR        Search target directory (default: current directory)
   -o OPEN_CMD   Open selected result with command
-                Priority: -o > env: LIVE_GREP_OPEN_CMD > "code -g" for VSCode
+                Priority: -o > env: LIVE_GREP_OPEN_CMD > auto-detect editor > "code -g"
   -u            Do not respect VCS ignore rules (e.g. .gitignore) for rg search
   -h            Show this help
 ```
 
-1. Default behavior (search current directory and open with `code -g` on selection)
+1. Default behavior (search current directory and open in the detected editor, falling back to `code -g`)
 
 ```bash
 ./live-grep.sh
@@ -78,6 +79,17 @@ export LIVE_GREP_OPEN_CMD='f="$1"; nvim "+${f##*:}" "${f%:*}"'
 ```
 
 ## Editor Examples
+
+If you run `live-grep.sh` inside a supported integrated terminal and do not pass `-o` or `LIVE_GREP_OPEN_CMD`, the script tries to pick the matching opener automatically:
+
+- VS Code terminals: `code -g` or `code-insiders -g` when detectable and installed
+- Zed terminals: `zed`
+- Neovim terminals: `nvim --server "$NVIM" --remote-send ...` when `$NVIM` is available
+- Vim terminals: `vim --servername "$VIM_SERVERNAME" --remote-silent ...` when `$VIM_SERVERNAME` is available
+
+The auto-detection is best-effort. Use `-o` or `LIVE_GREP_OPEN_CMD` when your editor setup needs a specific command.
+
+Open commands receive the selected location as `path:line`. Simple commands such as `code -g` or `zed` get it appended automatically; shell snippets can read it from `$1`.
 
 `zed` accepts `path:line`, so it can be used directly.
 

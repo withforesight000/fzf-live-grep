@@ -9,7 +9,7 @@ Usage:
 Options:
   -d DIR        Search target directory (default: current directory)
   -o OPEN_CMD   Open selected result with command
-                Priority: -o > env: LIVE_GREP_OPEN_CMD > "code -g" for VSCode
+                Priority: -o > env: LIVE_GREP_OPEN_CMD > auto-detect editor > "code -g"
   -u            Do not respect VCS ignore rules (e.g. .gitignore) for rg search
   -h            Show this help
 EOF
@@ -31,13 +31,126 @@ if ! command -v bat >/dev/null 2>&1; then
 fi
 
 target_dir="."
-open_cmd="${LIVE_GREP_OPEN_CMD:-code -g}"
+open_cmd=""
+open_cmd_source="auto"
 rg_no_ignore_vcs=false
+
+if [[ -n "${LIVE_GREP_OPEN_CMD:-}" ]]; then
+  open_cmd="$LIVE_GREP_OPEN_CMD"
+  open_cmd_source="env"
+fi
+
+detect_parent_editor_open_cmd() {
+  local pid="${PPID:-}"
+  local depth=0
+  local cmd=""
+  local base=""
+  local ppid=""
+
+  while [[ -n "$pid" && "$pid" != "0" && "$depth" -lt 30 ]]; do
+    cmd="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    base="${cmd%% *}"
+    base="${base##*/}"
+
+    case "$cmd" in
+      *"Visual Studio Code - Insiders.app"*|*"Code - Insiders"*|*"code-insiders"*)
+        if command -v code-insiders >/dev/null 2>&1; then
+          printf '%s\n' "code-insiders -g"
+          return 0
+        fi
+        ;;
+      *"Visual Studio Code.app"*|*"Code Helper"*)
+        if command -v code >/dev/null 2>&1; then
+          printf '%s\n' "code -g"
+          return 0
+        fi
+        ;;
+      *"Zed.app"*|*"zed"*)
+        if command -v zed >/dev/null 2>&1; then
+          printf '%s\n' "zed"
+          return 0
+        fi
+        ;;
+    esac
+
+    case "$base" in
+      code-insiders)
+        if command -v code-insiders >/dev/null 2>&1; then
+          printf '%s\n' "code-insiders -g"
+          return 0
+        fi
+        ;;
+      code|Code)
+        if command -v code >/dev/null 2>&1; then
+          printf '%s\n' "code -g"
+          return 0
+        fi
+        ;;
+      zed|Zed)
+        if command -v zed >/dev/null 2>&1; then
+          printf '%s\n' "zed"
+          return 0
+        fi
+        ;;
+    esac
+
+    ppid="$(ps -p "$pid" -o ppid= 2>/dev/null || true)"
+    ppid="${ppid//[[:space:]]/}"
+    if [[ -z "$ppid" || "$ppid" == "$pid" ]]; then
+      break
+    fi
+    pid="$ppid"
+    depth=$((depth + 1))
+  done
+
+  return 1
+}
+
+detect_default_open_cmd() {
+  if [[ -n "${TERM_PROGRAM:-}" ]]; then
+    case "$TERM_PROGRAM" in
+      vscode)
+        if detect_parent_editor_open_cmd; then
+          return 0
+        fi
+        if command -v code >/dev/null 2>&1; then
+          printf '%s\n' "code -g"
+          return 0
+        fi
+        ;;
+      zed)
+        if command -v zed >/dev/null 2>&1; then
+          printf '%s\n' "zed"
+          return 0
+        fi
+        ;;
+    esac
+  fi
+
+  if [[ -n "${NVIM:-}" ]] && command -v nvim >/dev/null 2>&1; then
+    printf '%s\n' 'f="$1"; file="${f%:*}"; line="${f##*:}"; printf -v q "%q" "$file"; nvim --server "$NVIM" --remote-send "<C-\><C-N>:edit +${line} ${q}<CR>"; :'
+    return 0
+  fi
+
+  if [[ -n "${VIM_SERVERNAME:-}" ]] && command -v vim >/dev/null 2>&1; then
+    printf '%s\n' 'f="$1"; vim --servername "$VIM_SERVERNAME" --remote-silent "+${f##*:}" "${f%:*}"; :'
+    return 0
+  fi
+
+  if detect_parent_editor_open_cmd; then
+    return 0
+  fi
+
+  printf '%s\n' "code -g"
+}
 
 while getopts ":d:o:uh" opt; do
   case "$opt" in
     d) target_dir="$OPTARG" ;;
-    o) open_cmd="$OPTARG" ;;
+    o)
+      open_cmd="$OPTARG"
+      open_cmd_source="cli"
+      ;;
     u) rg_no_ignore_vcs=true ;;
     h)
       usage
@@ -67,6 +180,10 @@ fi
 if [[ ! -d "$target_dir" ]]; then
   echo "error: directory not found: $target_dir" >&2
   exit 1
+fi
+
+if [[ "$open_cmd_source" == "auto" ]]; then
+  open_cmd="$(detect_default_open_cmd)"
 fi
 
 # Build one searchable stream:
@@ -184,5 +301,29 @@ else
   fi
 fi
 
+open_selected() {
+  local selected_location="$1"
+  local status=0
+
+  set +e
+  case "$open_cmd" in
+    *'$1'*|*'${1'*)
+      bash -lc "$open_cmd" _ "$selected_location"
+      status=$?
+      ;;
+    *)
+      bash -lc "$open_cmd \"\$1\"" _ "$selected_location"
+      status=$?
+      ;;
+  esac
+  set -e
+
+  if [[ "$status" -ne 0 ]]; then
+    echo "error: failed to open selected result with: $open_cmd" >&2
+    echo "hint: set LIVE_GREP_OPEN_CMD or pass -o to use a different editor command" >&2
+    exit "$status"
+  fi
+}
+
 # Example: ./live-grep.sh -o "code -g"
-bash -lc "$open_cmd \"\$1\"" _ "${file}:${line}"
+open_selected "${file}:${line}"
